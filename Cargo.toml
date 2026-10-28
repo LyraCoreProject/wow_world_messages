@@ -63,7 +63,7 @@ default-features = false
 
 [dependencies.flate2]
 version = "1.0.24"
-features = ["zlib"]
+features = ["rust_backend"]
 optional = false
 default-features = false
 

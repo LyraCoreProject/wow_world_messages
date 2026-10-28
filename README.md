@@ -1,3 +1,11 @@
+> **LyraCore fork.** This is `wow_world_messages` 0.3.0 from crates.io, by Gtker
+> ([gtker/wow_messages](https://github.com/gtker/wow_messages)), with one change: `flate2` uses its
+> pure-Rust backend (`rust_backend`) instead of C zlib (`zlib`). The C backend cannot be turned off
+> downstream, and a WebAssembly build on macOS cannot archive zlib's C objects with Apple's `ar`.
+> Decompression is unchanged. Compressed output stays valid zlib but may differ byte for byte.
+> See [LyraCore#886](https://github.com/LyraCoreProject/LyraCore/issues/886).
+> The licenses are unchanged: MIT or Apache-2.0, at your option.
+
 # `wow_world_messages`
 
 Crate containing message definitions for the World of Warcraft World protocol for versions 1.12.x, 2.4.3.8606, and

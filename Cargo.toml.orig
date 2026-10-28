@@ -38,7 +38,7 @@ optional = true
 version = "1.0.24"
 optional = false
 default-features = false
-features = ["zlib"]
+features = ["rust_backend"]
 
 [dependencies.tokio]
 version = "1"
