@@ -7,6 +7,10 @@ use wow_world_base::shared::loot_method_error_vanilla_tbc_wrath::LootMethodError
 use wow_world_base::shared::loot_method_vanilla_tbc_wrath::LootMethod;
 use wow_world_base::shared::loot_slot_type_vanilla_tbc_wrath::LootSlotType;
 
+/// LyraCore fork: the `ErrorX` form is the guid, the loot method and the error: 10 bytes, with no
+/// `gold` and no `amount_of_items`, as 1.12 sends it. `gold` is `0` and `items` is empty when
+/// read, and neither is written.
+///
 /// Auto generated from the original `wowm` in file [`wow_message_parser/wowm/world/loot/smsg_loot_response.wowm:73`](https://github.com/gtker/wow_messages/tree/main/wow_message_parser/wowm/world/loot/smsg_loot_response.wowm#L73):
 /// ```text
 /// smsg SMSG_LOOT_RESPONSE = 0x0160 {
@@ -15,9 +19,11 @@ use wow_world_base::shared::loot_slot_type_vanilla_tbc_wrath::LootSlotType;
 ///     if (loot_method == ERROR) {
 ///         LootMethodError loot_error;
 ///     }
-///     Gold gold;
-///     u8 amount_of_items;
-///     LootItem[amount_of_items] items;
+///     else {
+///         Gold gold;
+///         u8 amount_of_items;
+///         LootItem[amount_of_items] items;
+///     }
 /// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -31,7 +37,7 @@ pub struct SMSG_LOOT_RESPONSE {
 impl crate::private::Sealed for SMSG_LOOT_RESPONSE {}
 impl SMSG_LOOT_RESPONSE {
     fn read_inner(mut r: &mut &[u8], body_size: u32) -> Result<Self, crate::errors::ParseErrorKind> {
-        if !(14..=1551).contains(&body_size) {
+        if !(10..=1551).contains(&body_size) {
             return Err(crate::errors::ParseErrorKind::InvalidSize);
         }
 
@@ -59,6 +65,15 @@ impl SMSG_LOOT_RESPONSE {
             LootMethod::FishingFail => SMSG_LOOT_RESPONSE_LootMethod::FishingFail,
             LootMethod::Insignia => SMSG_LOOT_RESPONSE_LootMethod::Insignia,
         };
+
+        if matches!(loot_method_if, SMSG_LOOT_RESPONSE_LootMethod::ErrorX { .. }) {
+            return Ok(Self {
+                guid,
+                loot_method: loot_method_if,
+                gold: Gold::new(0),
+                items: Vec::new(),
+            });
+        }
 
         // gold: Gold
         let gold = Gold::new(crate::util::read_u32_le(&mut r)?);
@@ -113,19 +128,21 @@ impl crate::Message for SMSG_LOOT_RESPONSE {
             _ => {}
         }
 
-        writeln!(s, "    gold = {};", self.gold.as_int()).unwrap();
-        writeln!(s, "    amount_of_items = {};", self.items.len()).unwrap();
-        writeln!(s, "    items = [").unwrap();
-        for v in self.items.as_slice() {
-            writeln!(s, "        {{").unwrap();
-            // Members
-            writeln!(s, "            index = {};", v.index).unwrap();
-            writeln!(s, "            item = {};", v.item).unwrap();
-            writeln!(s, "            ty = {};", v.ty.as_test_case_value()).unwrap();
+        if !matches!(self.loot_method, SMSG_LOOT_RESPONSE_LootMethod::ErrorX { .. }) {
+            writeln!(s, "    gold = {};", self.gold.as_int()).unwrap();
+            writeln!(s, "    amount_of_items = {};", self.items.len()).unwrap();
+            writeln!(s, "    items = [").unwrap();
+            for v in self.items.as_slice() {
+                writeln!(s, "        {{").unwrap();
+                // Members
+                writeln!(s, "            index = {};", v.index).unwrap();
+                writeln!(s, "            item = {};", v.item).unwrap();
+                writeln!(s, "            ty = {};", v.ty.as_test_case_value()).unwrap();
 
-            writeln!(s, "        }},").unwrap();
+                writeln!(s, "        }},").unwrap();
+            }
+            writeln!(s, "    ];").unwrap();
         }
-        writeln!(s, "    ];").unwrap();
 
         writeln!(s, "}} [").unwrap();
 
@@ -148,18 +165,20 @@ impl crate::Message for SMSG_LOOT_RESPONSE {
             _ => {}
         }
 
-        crate::util::write_bytes(&mut s, &mut bytes, 4, "gold", "    ");
-        crate::util::write_bytes(&mut s, &mut bytes, 1, "amount_of_items", "    ");
-        if !self.items.is_empty() {
-            writeln!(s, "    /* items: LootItem[amount_of_items] start */").unwrap();
-            for (i, v) in self.items.iter().enumerate() {
-                writeln!(s, "    /* items: LootItem[amount_of_items] {i} start */").unwrap();
-                crate::util::write_bytes(&mut s, &mut bytes, 1, "index", "        ");
-                crate::util::write_bytes(&mut s, &mut bytes, 4, "item", "        ");
-                crate::util::write_bytes(&mut s, &mut bytes, 1, "ty", "        ");
-                writeln!(s, "    /* items: LootItem[amount_of_items] {i} end */").unwrap();
+        if !matches!(self.loot_method, SMSG_LOOT_RESPONSE_LootMethod::ErrorX { .. }) {
+            crate::util::write_bytes(&mut s, &mut bytes, 4, "gold", "    ");
+            crate::util::write_bytes(&mut s, &mut bytes, 1, "amount_of_items", "    ");
+            if !self.items.is_empty() {
+                writeln!(s, "    /* items: LootItem[amount_of_items] start */").unwrap();
+                for (i, v) in self.items.iter().enumerate() {
+                    writeln!(s, "    /* items: LootItem[amount_of_items] {i} start */").unwrap();
+                    crate::util::write_bytes(&mut s, &mut bytes, 1, "index", "        ");
+                    crate::util::write_bytes(&mut s, &mut bytes, 4, "item", "        ");
+                    crate::util::write_bytes(&mut s, &mut bytes, 1, "ty", "        ");
+                    writeln!(s, "    /* items: LootItem[amount_of_items] {i} end */").unwrap();
+                }
+                writeln!(s, "    /* items: LootItem[amount_of_items] end */").unwrap();
             }
-            writeln!(s, "    /* items: LootItem[amount_of_items] end */").unwrap();
         }
 
 
@@ -181,15 +200,10 @@ impl crate::Message for SMSG_LOOT_RESPONSE {
         // loot_method: LootMethod
         w.write_all(&(self.loot_method.as_int().to_le_bytes()))?;
 
-        match &self.loot_method {
-            SMSG_LOOT_RESPONSE_LootMethod::ErrorX {
-                loot_error,
-            } => {
-                // loot_error: LootMethodError
-                w.write_all(&(loot_error.as_int().to_le_bytes()))?;
-
-            }
-            _ => {}
+        if let SMSG_LOOT_RESPONSE_LootMethod::ErrorX { loot_error } = &self.loot_method {
+            // loot_error: LootMethodError
+            w.write_all(&(loot_error.as_int().to_le_bytes()))?;
+            return Ok(());
         }
 
         // gold: Gold
@@ -223,8 +237,12 @@ impl crate::wrath::ServerMessage for SMSG_LOOT_RESPONSE {}
 
 impl SMSG_LOOT_RESPONSE {
     pub(crate) fn size(&self) -> usize {
+        let loot_method = self.loot_method.size(); // loot_method: SMSG_LOOT_RESPONSE_LootMethod
+        if matches!(self.loot_method, SMSG_LOOT_RESPONSE_LootMethod::ErrorX { .. }) {
+            return 8 + loot_method; // guid: Guid
+        }
         8 // guid: Guid
-        + self.loot_method.size() // loot_method: SMSG_LOOT_RESPONSE_LootMethod
+        + loot_method
         + 4 // gold: Gold
         + 1 // amount_of_items: u8
         + self.items.len() * 6 // items: LootItem[amount_of_items]
@@ -300,3 +318,71 @@ impl SMSG_LOOT_RESPONSE_LootMethod {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::vanilla::opcodes::ServerOpcodeMessage;
+    use crate::vanilla::ServerMessage;
+
+    const ERROR_HEADER_SIZE: usize = 2 + 2;
+    const ERROR_RAW: [u8; 14] = [
+        0x00, 0x0C, 0x60, 0x01, // size 12 (big endian), opcode 0x0160
+        0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0xF1, // guid
+        0x00, // loot method ErrorX
+        0x04, // loot error TooFar
+    ];
+
+    fn error() -> SMSG_LOOT_RESPONSE {
+        SMSG_LOOT_RESPONSE {
+            guid: Guid::new(0xF130_0000_0000_0007),
+            loot_method: SMSG_LOOT_RESPONSE_LootMethod::ErrorX {
+                loot_error: LootMethodError::TooFar,
+            },
+            gold: Gold::new(0),
+            items: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "sync")]
+    #[test]
+    fn a_loot_error_reads_as_ten_bytes_without_gold_or_an_item_count() {
+        let t = ServerOpcodeMessage::read_unencrypted(&mut std::io::Cursor::new(&ERROR_RAW)).unwrap();
+        let t = match t {
+            ServerOpcodeMessage::SMSG_LOOT_RESPONSE(t) => t,
+            opcode => panic!("incorrect opcode. Expected SMSG_LOOT_RESPONSE, got {opcode:#?}"),
+        };
+
+        assert_eq!(t.as_ref(), &error());
+        assert_eq!(t.size() + ERROR_HEADER_SIZE, ERROR_RAW.len());
+    }
+
+    #[cfg(feature = "sync")]
+    #[test]
+    fn a_loot_error_writes_as_ten_bytes_without_gold_or_an_item_count() {
+        let mut dest = Vec::with_capacity(ERROR_RAW.len());
+        error()
+            .write_unencrypted_server(&mut std::io::Cursor::new(&mut dest))
+            .unwrap();
+
+        assert_eq!(dest, ERROR_RAW);
+    }
+
+    #[cfg(feature = "sync")]
+    #[test]
+    fn a_corpse_loot_still_reads_gold_and_an_item_count() {
+        let raw = [
+            0x00, 0x10, 0x60, 0x01, // size 16, opcode 0x0160
+            0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0xF1, // guid
+            0x01, // loot method Corpse
+            0x0D, 0x00, 0x00, 0x00, // gold 13
+            0x00, // no items
+        ];
+        let t = ServerOpcodeMessage::read_unencrypted(&mut std::io::Cursor::new(&raw)).unwrap();
+        let ServerOpcodeMessage::SMSG_LOOT_RESPONSE(t) = t else {
+            panic!("incorrect opcode");
+        };
+        assert_eq!(t.loot_method, SMSG_LOOT_RESPONSE_LootMethod::Corpse);
+        assert_eq!(t.gold, Gold::new(13));
+        assert!(t.items.is_empty());
+    }
+}
