@@ -1,9 +1,13 @@
 > **LyraCore fork.** This is `wow_world_messages` 0.3.0 from crates.io, by Gtker
-> ([gtker/wow_messages](https://github.com/gtker/wow_messages)), with one change: `flate2` uses its
+> ([gtker/wow_messages](https://github.com/gtker/wow_messages)), with two changes. First, `flate2` uses its
 > pure-Rust backend (`rust_backend`) instead of C zlib (`zlib`). The C backend cannot be turned off
 > downstream, and a WebAssembly build on macOS cannot archive zlib's C objects with Apple's `ar`.
 > Decompression is unchanged. Compressed output stays valid zlib but may differ byte for byte.
 > See [LyraCore#886](https://github.com/LyraCoreProject/LyraCore/issues/886).
+> Second, `SMSG_LOOT_RESPONSE` reads and writes `gold` and `amount_of_items` only when the loot method
+> is not `ErrorX`, so a loot error is 10 bytes, as in 1.12. The file is edited by hand: this repository
+> holds the generated output only, so a regeneration from `wow_messages` would drop the change.
+> See [LyraCore#1142](https://github.com/LyraCoreProject/LyraCore/issues/1142).
 > The licenses are unchanged: MIT or Apache-2.0, at your option.
 
 # `wow_world_messages`
